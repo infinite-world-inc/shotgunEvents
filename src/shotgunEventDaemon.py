@@ -74,18 +74,18 @@ Line: %(lineno)d
 %(message)s"""
 
 
-def _setFilePathOnLogger(logger, path):
-    # Remove any previous handler.
-    _removeHandlersFromLogger(logger, logging.handlers.TimedRotatingFileHandler)
-
-    # Add the file handler
-    handler = logging.handlers.TimedRotatingFileHandler(
-        path, "midnight", backupCount=10
-    )
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
-    logger.addHandler(handler)
+# def _setFilePathOnLogger(logger, path):
+#     # Remove any previous handler.
+#     _removeHandlersFromLogger(logger, logging.handlers.TimedRotatingFileHandler)
+#
+#     # Add the file handler
+#     handler = logging.handlers.TimedRotatingFileHandler(
+#         path, "midnight", backupCount=10
+#     )
+#     handler.setFormatter(
+#         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+#     )
+#     logger.addHandler(handler)
 
 
 def _removeHandlersFromLogger(logger, handlerTypes=None):
@@ -283,7 +283,7 @@ class Engine(object):
             # Set the root logger for file output.
             rootLogger = logging.getLogger()
             rootLogger.config = self.config
-            _setFilePathOnLogger(rootLogger, self.config.getLogFile())
+            # _setFilePathOnLogger(rootLogger, self.config.getLogFile())
             print(self.config.getLogFile())
 
             # Set the engine logger for email output.
@@ -293,7 +293,7 @@ class Engine(object):
             # Set the engine logger for file and email output.
             self.log = logging.getLogger("engine")
             self.log.config = self.config
-            _setFilePathOnLogger(self.log, self.config.getLogFile())
+            # _setFilePathOnLogger(self.log, self.config.getLogFile())
             self.setEmailsOnLogger(self.log, True)
 
         self.log.setLevel(self.config.getLogLevel())
@@ -303,7 +303,7 @@ class Engine(object):
         if timing_log_filename:
             self.timing_logger = logging.getLogger("timing")
             self.timing_logger.setLevel(self.config.getLogLevel())
-            _setFilePathOnLogger(self.timing_logger, timing_log_filename)
+            # _setFilePathOnLogger(self.timing_logger, timing_log_filename)
         else:
             self.timing_logger = None
 
@@ -748,10 +748,10 @@ class Plugin(object):
         self.logger.config = self._engine.config
         self._engine.setEmailsOnLogger(self.logger, True)
         self.logger.setLevel(self._engine.config.getLogLevel())
-        if self._engine.config.getLogMode() == 1:
-            _setFilePathOnLogger(
-                self.logger, self._engine.config.getLogFile("plugin." + self.getName())
-            )
+        # if self._engine.config.getLogMode() == 1:
+        #     _setFilePathOnLogger(
+        #         self.logger, self._engine.config.getLogFile("plugin." + self.getName())
+        #     )
 
     def getName(self):
         return self._pluginName
