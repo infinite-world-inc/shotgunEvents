@@ -473,6 +473,8 @@ class Engine(object):
         contacting Shotgun to get the latest event's id and we'll start
         processing from there.
         """
+        self.log.info("Loading event ID Data.")
+
         eventIdFile = self.config.getEventIdFile()
         if not eventIdFile:
             # No id file?
@@ -748,6 +750,7 @@ class Engine(object):
         Next time the engine is started it will try to read the event id from
         this location to know at which event it should start processing.
         """
+        self.log.debug("Saving Event ID data.")
         eventIdFile = self.config.getEventIdFile()
 
         if eventIdFile is None:
