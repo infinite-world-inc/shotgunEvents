@@ -59,6 +59,9 @@ import daemonizer
 import shotgun_api3 as sg
 from shotgun_api3.lib.sgtimezone import SgTimezone
 
+from google.cloud import storage
+from google.api_core.exceptions import GoogleAPIError
+
 
 SG_TIMEZONE = SgTimezone()
 CURRENT_PYTHON_VERSION = StrictVersion(sys.version.split()[0])
@@ -72,6 +75,8 @@ Function: %(funcName)s
 Line: %(lineno)d
 
 %(message)s"""
+
+gcloud_bucket_name = os.environ.get('SGDAEMON_GCLOUD_BUCKET_NAME')
 
 
 # def _setFilePathOnLogger(logger, path):
@@ -372,7 +377,7 @@ class Engine(object):
             msg = "Crash!!!!! Unexpected error (%s) in main loop.\n\n%s"
             self.log.critical(msg, type(err), traceback.format_exc(err))
 
-    def _loadEventIdData(self):
+    def _loadEventIdData_old(self):
         """
         Load the last processed event id from the disk
 
@@ -457,6 +462,93 @@ class Engine(object):
                     collection.setState(lastEventId)
 
             self._saveEventIdData()
+
+    def _loadEventIdData(self):
+        """
+        Load the last processed event id from the disk
+
+        If no event has ever been processed or if the eventIdFile has been
+        deleted from disk, no id will be recoverable. In this case, we will try
+        contacting Shotgun to get the latest event's id and we'll start
+        processing from there.
+        """
+        eventIdFile = self.config.getEventIdFile()
+        if not eventIdFile:
+            # No id file?
+            # Get the event data from the database.
+            msg_warn = "Config for `eventIdFile` not set. Not writing to bucket."
+            self.log.warning(msg_warn)
+
+            lastEventId = self._getLastEventIdFromDatabase()
+            if lastEventId:
+                for collection in self._pluginCollections:
+                    collection.setState(lastEventId)
+            self._saveEventIdData()
+            return
+
+        blob = self._get_gcloud_storage_blob(eventIdFile, raise_on_api_fail=True)
+
+        try:
+            pickle_bytes = blob.download_as_bytes()
+        except GoogleAPIError:
+            msg_err = "Can not download from cloud storage bucket `{}`: {}.\n\n{}"
+            self.log.error(msg_err.format(gcloud_bucket_name, blob.name, traceback.format_exc()))
+
+            # Failed to call?
+            # Get the event data from the database.
+            lastEventId = self._getLastEventIdFromDatabase()
+            if lastEventId:
+                for collection in self._pluginCollections:
+                    collection.setState(lastEventId)
+            self._saveEventIdData()
+            return
+
+        try:
+            self._eventIdData = pickle.loads(pickle_bytes)
+            if not isinstance(self._eventIdData, dict):
+                msg_err = "Unpickled data isn't a dict: {}\n\n{}"
+                raise EventDaemonError(msg_err.format(self._eventIdData, traceback.format_exc()))
+        except pickle.UnpicklingError:
+            msg_err = "Could not unpickle data: {}\n\n{}"
+            raise EventDaemonError(msg_err.format(pickle_bytes, traceback.format_exc()))
+
+        # Provide event id info to the plugin collections. Once
+        # they've figured out what to do with it, ask them for their
+        # last processed id.
+        noStateCollections = []
+        for collection in self._pluginCollections:
+            state = self._eventIdData.get(collection.path)
+            if state:
+                collection.setState(state)
+            else:
+                noStateCollections.append(collection)
+
+        # If we don't have a state it means there's no match
+        # in the id file. First we'll search to see the latest id a
+        # matching plugin name has elsewhere in the id file. We do
+        # this as a fallback in case the plugins directory has been
+        # moved. If there's no match, use the latest event id
+        # in Shotgun.
+        if noStateCollections:
+            maxPluginStates = {}
+            for collection in self._eventIdData.values():
+                for pluginName, pluginState in collection.items():
+                    if pluginName in maxPluginStates.keys():
+                        if pluginState[0] > maxPluginStates[pluginName][0]:
+                            maxPluginStates[pluginName] = pluginState
+                    else:
+                        maxPluginStates[pluginName] = pluginState
+
+            lastEventId = self._getLastEventIdFromDatabase()
+            for collection in noStateCollections:
+                state = collection.getState()
+                for pluginName in state.keys():
+                    if pluginName in maxPluginStates.keys():
+                        state[pluginName] = maxPluginStates[pluginName]
+                    else:
+                        state[pluginName] = lastEventId
+                collection.setState(state)
+
 
     def _getLastEventIdFromDatabase(self):
 
@@ -584,7 +676,7 @@ class Engine(object):
 
         return []
 
-    def _saveEventIdData(self):
+    def _saveEventIdData_old(self):
         """
         Save an event Id to persistant storage.
 
@@ -612,6 +704,66 @@ class Engine(object):
                     break
             else:
                 self.log.warning("No state was found. Not saving to disk.")
+
+    def _get_gcloud_storage_blob(self, blob_name, raise_on_api_fail=False):
+        """Get the Google Cloud Storage blob object.
+
+        Args:
+            blob_name (str): Name of the blob as seen in GClooud
+                Storage.
+
+        Returns:
+            False|google.cloud.storage.Blob: If a valid Blob is found,
+                return it. Otherwise, return False.
+
+        """
+        try:
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(gcloud_bucket_name)
+            blob = bucket.blob(blob_name)
+            return blob
+        except GoogleAPIError:
+            if raise_on_api_fail:
+                msg_err = "Can not get blob from cloud storage bucket `{}`: {}"
+                raise EventDaemonError(msg_err.format(gcloud_bucket_name, blob_name ))
+            msg_err = "Can not get blob from cloud storage bucket `{}`: {}\n\n{}"
+            self.log.error(msg_err.format(gcloud_bucket_name, blob_name, traceback.format_exc()))
+        return False
+
+
+    def _saveEventIdData(self):
+        """
+        Save an event Id to persistant storage.
+
+        Next time the engine is started it will try to read the event id from
+        this location to know at which event it should start processing.
+        """
+        eventIdFile = self.config.getEventIdFile()
+
+        if eventIdFile is None:
+            self.log.warning("Config for `eventIdFile` not set. Not saving to disk.")
+            return
+
+        blob = self._get_gcloud_storage_blob(eventIdFile)
+        if blob is False:
+            self.log.warning("Couldn't get blob for writing. Not saving to disk.")
+            return
+
+        for collection in self._pluginCollections:
+            self._eventIdData[collection.path] = collection.getState()
+
+        for colPath, state in self._eventIdData.items():
+            if state:
+                try:
+                    # Use protocol 2 so it can also be loaded in Python 2
+                    pickle_bytes = pickle.dumps(self._eventIdData, protocol=2)
+                    blob.upload_from_string(pickle_bytes, content_type="application/python-pickle")
+                except GoogleAPIError:
+                    msg_err = "Can not upload to cloud storage bucket `{}`: {}.\n\n{}"
+                    self.log.error(msg_err.format(gcloud_bucket_name, blob.name, traceback.format_exc()))
+                break
+        else:
+            self.log.warning("No state was found. Not saving to disk.")
 
     def _checkConnectionAttempts(self, conn_attempts, msg):
         conn_attempts += 1
