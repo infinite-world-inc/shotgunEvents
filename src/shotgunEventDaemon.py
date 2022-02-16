@@ -61,6 +61,7 @@ from shotgun_api3.lib.sgtimezone import SgTimezone
 
 from google.cloud import storage
 from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
 
 
 SG_TIMEZONE = SgTimezone()
@@ -719,6 +720,15 @@ class Engine(object):
         """
         try:
             storage_client = storage.Client()
+        except GoogleAuthError:
+            if raise_on_api_fail:
+                msg_err = "Can't get GCloud storage client."
+                raise EventDaemonError(msg_err)
+            msg_err = "Can't get GCloud storage client.\n\n{}"
+            self.log.error(msg_err.format(traceback.format_exc()))
+            return False
+
+        try:
             bucket = storage_client.bucket(gcloud_bucket_name)
             blob = bucket.blob(blob_name)
             return blob
