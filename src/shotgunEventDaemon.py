@@ -94,6 +94,18 @@ gcloud_bucket_name = os.environ.get('SGDAEMON_GCLOUD_BUCKET_NAME')
 #     logger.addHandler(handler)
 
 
+def _set_StreamHandler_Logger(logger):
+    # Remove any previous handler.
+    _removeHandlersFromLogger(logger, logging.StreamHandler)
+
+    # Setup the stdout logger
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    )
+    logger.addHandler(handler)
+
+
 def _removeHandlersFromLogger(logger, handlerTypes=None):
     """
     Remove all handlers or handlers of a specified type from a logger.
@@ -111,39 +123,39 @@ def _removeHandlersFromLogger(logger, handlerTypes=None):
             logger.removeHandler(handler)
 
 
-def _addMailHandlerToLogger(
-    logger,
-    smtpServer,
-    fromAddr,
-    toAddrs,
-    emailSubject,
-    username=None,
-    password=None,
-    secure=None,
-):
-    """
-    Configure a logger with a handler that sends emails to specified
-    addresses.
-
-    The format of the email is defined by L{LogFactory.EMAIL_FORMAT_STRING}.
-
-    @note: Any SMTPHandler already connected to the logger will be removed.
-
-    @param logger: The logger to configure
-    @type logger: A logging.Logger instance
-    @param toAddrs: The addresses to send the email to.
-    @type toAddrs: A list of email addresses that will be passed on to the
-        SMTPHandler.
-    """
-    if smtpServer and fromAddr and toAddrs and emailSubject:
-        mailHandler = CustomSMTPHandler(
-            smtpServer, fromAddr, toAddrs, emailSubject, (username, password), secure
-        )
-        mailHandler.setLevel(logging.ERROR)
-        mailFormatter = logging.Formatter(EMAIL_FORMAT_STRING)
-        mailHandler.setFormatter(mailFormatter)
-
-        logger.addHandler(mailHandler)
+# def _addMailHandlerToLogger(
+#     logger,
+#     smtpServer,
+#     fromAddr,
+#     toAddrs,
+#     emailSubject,
+#     username=None,
+#     password=None,
+#     secure=None,
+# ):
+#     """
+#     Configure a logger with a handler that sends emails to specified
+#     addresses.
+#
+#     The format of the email is defined by L{LogFactory.EMAIL_FORMAT_STRING}.
+#
+#     @note: Any SMTPHandler already connected to the logger will be removed.
+#
+#     @param logger: The logger to configure
+#     @type logger: A logging.Logger instance
+#     @param toAddrs: The addresses to send the email to.
+#     @type toAddrs: A list of email addresses that will be passed on to the
+#         SMTPHandler.
+#     """
+#     if smtpServer and fromAddr and toAddrs and emailSubject:
+#         mailHandler = CustomSMTPHandler(
+#             smtpServer, fromAddr, toAddrs, emailSubject, (username, password), secure
+#         )
+#         mailHandler.setLevel(logging.ERROR)
+#         mailFormatter = logging.Formatter(EMAIL_FORMAT_STRING)
+#         mailHandler.setFormatter(mailFormatter)
+#
+#         logger.addHandler(mailHandler)
 
 
 class Config(configparser.SafeConfigParser):
@@ -290,17 +302,17 @@ class Engine(object):
             rootLogger = logging.getLogger()
             rootLogger.config = self.config
             # _setFilePathOnLogger(rootLogger, self.config.getLogFile())
-            print(self.config.getLogFile())
+            # print(self.config.getLogFile())
 
             # Set the engine logger for email output.
             self.log = logging.getLogger("engine")
-            self.setEmailsOnLogger(self.log, True)
+            # self.setEmailsOnLogger(self.log, True)
         else:
             # Set the engine logger for file and email output.
             self.log = logging.getLogger("engine")
             self.log.config = self.config
             # _setFilePathOnLogger(self.log, self.config.getLogFile())
-            self.setEmailsOnLogger(self.log, True)
+            # self.setEmailsOnLogger(self.log, True)
 
         self.log.setLevel(self.config.getLogLevel())
 
@@ -315,42 +327,42 @@ class Engine(object):
 
         super(Engine, self).__init__()
 
-    def setEmailsOnLogger(self, logger, emails):
-        # Configure the logger for email output
-        _removeHandlersFromLogger(logger, logging.handlers.SMTPHandler)
-
-        if emails is False:
-            return
-
-        smtpServer = self.config.getSMTPServer()
-        smtpPort = self.config.getSMTPPort()
-        fromAddr = self.config.getFromAddr()
-        emailSubject = self.config.getEmailSubject()
-        username = self.config.getEmailUsername()
-        password = self.config.getEmailPassword()
-        if self.config.getSecureSMTP():
-            secure = (None, None)
-        else:
-            secure = None
-
-        if emails is True:
-            toAddrs = self.config.getToAddrs()
-        elif isinstance(emails, (list, tuple)):
-            toAddrs = emails
-        else:
-            msg = "Argument emails should be True to use the default addresses, False to not send any emails or a list of recipient addresses. Got %s."
-            raise ValueError(msg % type(emails))
-
-        _addMailHandlerToLogger(
-            logger,
-            (smtpServer, smtpPort),
-            fromAddr,
-            toAddrs,
-            emailSubject,
-            username,
-            password,
-            secure,
-        )
+    # def setEmailsOnLogger(self, logger, emails):
+    #     # Configure the logger for email output
+    #     _removeHandlersFromLogger(logger, logging.handlers.SMTPHandler)
+    #
+    #     if emails is False:
+    #         return
+    #
+    #     smtpServer = self.config.getSMTPServer()
+    #     smtpPort = self.config.getSMTPPort()
+    #     fromAddr = self.config.getFromAddr()
+    #     emailSubject = self.config.getEmailSubject()
+    #     username = self.config.getEmailUsername()
+    #     password = self.config.getEmailPassword()
+    #     if self.config.getSecureSMTP():
+    #         secure = (None, None)
+    #     else:
+    #         secure = None
+    #
+    #     if emails is True:
+    #         toAddrs = self.config.getToAddrs()
+    #     elif isinstance(emails, (list, tuple)):
+    #         toAddrs = emails
+    #     else:
+    #         msg = "Argument emails should be True to use the default addresses, False to not send any emails or a list of recipient addresses. Got %s."
+    #         raise ValueError(msg % type(emails))
+    #
+    #     _addMailHandlerToLogger(
+    #         logger,
+    #         (smtpServer, smtpPort),
+    #         fromAddr,
+    #         toAddrs,
+    #         emailSubject,
+    #         username,
+    #         password,
+    #         secure,
+    #     )
 
     def start(self):
         """
@@ -911,12 +923,15 @@ class Plugin(object):
         # Setup the plugin's logger
         self.logger = logging.getLogger("plugin." + self.getName())
         self.logger.config = self._engine.config
-        self._engine.setEmailsOnLogger(self.logger, True)
+        # self._engine.setEmailsOnLogger(self.logger, True)
         self.logger.setLevel(self._engine.config.getLogLevel())
         # if self._engine.config.getLogMode() == 1:
         #     _setFilePathOnLogger(
         #         self.logger, self._engine.config.getLogFile("plugin." + self.getName())
         #     )
+
+        _set_StreamHandler_Logger(self.logger)
+
 
     def getName(self):
         return self._pluginName
@@ -965,7 +980,7 @@ class Plugin(object):
         @param emails: See L{LogFactory.getLogger}'s emails argument for info.
         @type emails: A I{list}/I{tuple} of email addresses or I{bool}.
         """
-        self._engine.setEmailsOnLogger(self.logger, emails)
+        # self._engine.setEmailsOnLogger(self.logger, emails)
 
     def load(self):
         """
@@ -1339,72 +1354,72 @@ class Callback(object):
         return self._name
 
 
-class CustomSMTPHandler(logging.handlers.SMTPHandler):
-    """
-    A custom SMTPHandler subclass that will adapt it's subject depending on the
-    error severity.
-    """
-
-    LEVEL_SUBJECTS = {
-        logging.ERROR: "ERROR - SG event daemon.",
-        logging.CRITICAL: "CRITICAL - SG event daemon.",
-    }
-
-    def __init__(
-        self, smtpServer, fromAddr, toAddrs, emailSubject, credentials=None, secure=None
-    ):
-        args = [smtpServer, fromAddr, toAddrs, emailSubject, credentials]
-        if credentials:
-            # Python 2.7 implemented the secure argument
-            if CURRENT_PYTHON_VERSION >= PYTHON_27:
-                args.append(secure)
-            else:
-                self.secure = secure
-
-        logging.handlers.SMTPHandler.__init__(self, *args)
-
-    def getSubject(self, record):
-        subject = logging.handlers.SMTPHandler.getSubject(self, record)
-        if record.levelno in self.LEVEL_SUBJECTS:
-            return subject + " " + self.LEVEL_SUBJECTS[record.levelno]
-        return subject
-
-    def emit(self, record):
-        """
-        Emit a record.
-
-        Format the record and send it to the specified addressees.
-        """
-
-        # Mostly copied from Python 2.7 implementation.
-        try:
-            import smtplib
-            from email.utils import formatdate
-
-            port = self.mailport
-            if not port:
-                port = smtplib.SMTP_PORT
-            smtp = smtplib.SMTP(self.mailhost, port)
-            msg = self.format(record)
-            msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
-                self.fromaddr,
-                ",".join(self.toaddrs),
-                self.getSubject(record),
-                formatdate(),
-                msg,
-            )
-            if self.username:
-                if self.secure is not None:
-                    smtp.ehlo()
-                    smtp.starttls(*self.secure)
-                    smtp.ehlo()
-                smtp.login(self.username, self.password)
-            smtp.sendmail(self.fromaddr, self.toaddrs, msg)
-            smtp.close()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
+# class CustomSMTPHandler(logging.handlers.SMTPHandler):
+#     """
+#     A custom SMTPHandler subclass that will adapt it's subject depending on the
+#     error severity.
+#     """
+#
+#     LEVEL_SUBJECTS = {
+#         logging.ERROR: "ERROR - SG event daemon.",
+#         logging.CRITICAL: "CRITICAL - SG event daemon.",
+#     }
+#
+#     def __init__(
+#         self, smtpServer, fromAddr, toAddrs, emailSubject, credentials=None, secure=None
+#     ):
+#         args = [smtpServer, fromAddr, toAddrs, emailSubject, credentials]
+#         if credentials:
+#             # Python 2.7 implemented the secure argument
+#             if CURRENT_PYTHON_VERSION >= PYTHON_27:
+#                 args.append(secure)
+#             else:
+#                 self.secure = secure
+#
+#         logging.handlers.SMTPHandler.__init__(self, *args)
+#
+#     def getSubject(self, record):
+#         subject = logging.handlers.SMTPHandler.getSubject(self, record)
+#         if record.levelno in self.LEVEL_SUBJECTS:
+#             return subject + " " + self.LEVEL_SUBJECTS[record.levelno]
+#         return subject
+#
+#     def emit(self, record):
+#         """
+#         Emit a record.
+#
+#         Format the record and send it to the specified addressees.
+#         """
+#
+#         # Mostly copied from Python 2.7 implementation.
+#         try:
+#             import smtplib
+#             from email.utils import formatdate
+#
+#             port = self.mailport
+#             if not port:
+#                 port = smtplib.SMTP_PORT
+#             smtp = smtplib.SMTP(self.mailhost, port)
+#             msg = self.format(record)
+#             msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
+#                 self.fromaddr,
+#                 ",".join(self.toaddrs),
+#                 self.getSubject(record),
+#                 formatdate(),
+#                 msg,
+#             )
+#             if self.username:
+#                 if self.secure is not None:
+#                     smtp.ehlo()
+#                     smtp.starttls(*self.secure)
+#                     smtp.ehlo()
+#                 smtp.login(self.username, self.password)
+#             smtp.sendmail(self.fromaddr, self.toaddrs, msg)
+#             smtp.close()
+#         except (KeyboardInterrupt, SystemExit):
+#             raise
+#         except:
+#             self.handleError(record)
 
 
 class EventDaemonError(Exception):
