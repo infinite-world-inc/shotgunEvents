@@ -390,7 +390,7 @@ class Engine(object):
             msg = "Crash!!!!! Unexpected error (%s) in main loop.\n\n%s"
             self.log.critical(msg, type(err), traceback.format_exc())
 
-    def _loadEventIdData(self):
+    def _loadEventIdData_old(self):
         """
         Load the last processed event id from the disk
 
@@ -476,7 +476,7 @@ class Engine(object):
 
             self._saveEventIdData()
 
-    def _loadEventIdData_new(self):
+    def _loadEventIdData(self):
         """
         Load the last processed event id from the disk
 
@@ -691,7 +691,7 @@ class Engine(object):
 
         return []
 
-    def _saveEventIdData(self):
+    def _saveEventIdData_old(self):
         """
         Save an event Id to persistant storage.
 
@@ -755,7 +755,7 @@ class Engine(object):
         return False
 
 
-    def _saveEventIdData_new(self):
+    def _saveEventIdData(self):
         """
         Save an event Id to persistant storage.
 
