@@ -123,39 +123,39 @@ def _removeHandlersFromLogger(logger, handlerTypes=None):
             logger.removeHandler(handler)
 
 
-# def _addMailHandlerToLogger(
-#     logger,
-#     smtpServer,
-#     fromAddr,
-#     toAddrs,
-#     emailSubject,
-#     username=None,
-#     password=None,
-#     secure=None,
-# ):
-#     """
-#     Configure a logger with a handler that sends emails to specified
-#     addresses.
-#
-#     The format of the email is defined by L{LogFactory.EMAIL_FORMAT_STRING}.
-#
-#     @note: Any SMTPHandler already connected to the logger will be removed.
-#
-#     @param logger: The logger to configure
-#     @type logger: A logging.Logger instance
-#     @param toAddrs: The addresses to send the email to.
-#     @type toAddrs: A list of email addresses that will be passed on to the
-#         SMTPHandler.
-#     """
-#     if smtpServer and fromAddr and toAddrs and emailSubject:
-#         mailHandler = CustomSMTPHandler(
-#             smtpServer, fromAddr, toAddrs, emailSubject, (username, password), secure
-#         )
-#         mailHandler.setLevel(logging.ERROR)
-#         mailFormatter = logging.Formatter(EMAIL_FORMAT_STRING)
-#         mailHandler.setFormatter(mailFormatter)
-#
-#         logger.addHandler(mailHandler)
+def _addMailHandlerToLogger(
+    logger,
+    smtpServer,
+    fromAddr,
+    toAddrs,
+    emailSubject,
+    username=None,
+    password=None,
+    secure=None,
+):
+    """
+    Configure a logger with a handler that sends emails to specified
+    addresses.
+
+    The format of the email is defined by L{LogFactory.EMAIL_FORMAT_STRING}.
+
+    @note: Any SMTPHandler already connected to the logger will be removed.
+
+    @param logger: The logger to configure
+    @type logger: A logging.Logger instance
+    @param toAddrs: The addresses to send the email to.
+    @type toAddrs: A list of email addresses that will be passed on to the
+        SMTPHandler.
+    """
+    if smtpServer and fromAddr and toAddrs and emailSubject:
+        mailHandler = CustomSMTPHandler(
+            smtpServer, fromAddr, toAddrs, emailSubject, (username, password), secure
+        )
+        mailHandler.setLevel(logging.ERROR)
+        mailFormatter = logging.Formatter(EMAIL_FORMAT_STRING)
+        mailHandler.setFormatter(mailFormatter)
+
+        logger.addHandler(mailHandler)
 
 
 class Config(configparser.SafeConfigParser):
@@ -526,6 +526,8 @@ class Engine(object):
         except pickle.UnpicklingError:
             msg_err = "Could not unpickle data: {}\n\n{}"
             raise EventDaemonError(msg_err.format(pickle_bytes, traceback.format_exc()))
+
+
 
         # Provide event id info to the plugin collections. Once
         # they've figured out what to do with it, ask them for their
@@ -930,7 +932,7 @@ class Plugin(object):
         #         self.logger, self._engine.config.getLogFile("plugin." + self.getName())
         #     )
 
-        _set_StreamHandler_Logger(self.logger)
+        # _set_StreamHandler_Logger(self.logger)
 
 
     def getName(self):
@@ -1354,72 +1356,72 @@ class Callback(object):
         return self._name
 
 
-# class CustomSMTPHandler(logging.handlers.SMTPHandler):
-#     """
-#     A custom SMTPHandler subclass that will adapt it's subject depending on the
-#     error severity.
-#     """
-#
-#     LEVEL_SUBJECTS = {
-#         logging.ERROR: "ERROR - SG event daemon.",
-#         logging.CRITICAL: "CRITICAL - SG event daemon.",
-#     }
-#
-#     def __init__(
-#         self, smtpServer, fromAddr, toAddrs, emailSubject, credentials=None, secure=None
-#     ):
-#         args = [smtpServer, fromAddr, toAddrs, emailSubject, credentials]
-#         if credentials:
-#             # Python 2.7 implemented the secure argument
-#             if CURRENT_PYTHON_VERSION >= PYTHON_27:
-#                 args.append(secure)
-#             else:
-#                 self.secure = secure
-#
-#         logging.handlers.SMTPHandler.__init__(self, *args)
-#
-#     def getSubject(self, record):
-#         subject = logging.handlers.SMTPHandler.getSubject(self, record)
-#         if record.levelno in self.LEVEL_SUBJECTS:
-#             return subject + " " + self.LEVEL_SUBJECTS[record.levelno]
-#         return subject
-#
-#     def emit(self, record):
-#         """
-#         Emit a record.
-#
-#         Format the record and send it to the specified addressees.
-#         """
-#
-#         # Mostly copied from Python 2.7 implementation.
-#         try:
-#             import smtplib
-#             from email.utils import formatdate
-#
-#             port = self.mailport
-#             if not port:
-#                 port = smtplib.SMTP_PORT
-#             smtp = smtplib.SMTP(self.mailhost, port)
-#             msg = self.format(record)
-#             msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
-#                 self.fromaddr,
-#                 ",".join(self.toaddrs),
-#                 self.getSubject(record),
-#                 formatdate(),
-#                 msg,
-#             )
-#             if self.username:
-#                 if self.secure is not None:
-#                     smtp.ehlo()
-#                     smtp.starttls(*self.secure)
-#                     smtp.ehlo()
-#                 smtp.login(self.username, self.password)
-#             smtp.sendmail(self.fromaddr, self.toaddrs, msg)
-#             smtp.close()
-#         except (KeyboardInterrupt, SystemExit):
-#             raise
-#         except:
-#             self.handleError(record)
+class CustomSMTPHandler(logging.handlers.SMTPHandler):
+    """
+    A custom SMTPHandler subclass that will adapt it's subject depending on the
+    error severity.
+    """
+
+    LEVEL_SUBJECTS = {
+        logging.ERROR: "ERROR - SG event daemon.",
+        logging.CRITICAL: "CRITICAL - SG event daemon.",
+    }
+
+    def __init__(
+        self, smtpServer, fromAddr, toAddrs, emailSubject, credentials=None, secure=None
+    ):
+        args = [smtpServer, fromAddr, toAddrs, emailSubject, credentials]
+        if credentials:
+            # Python 2.7 implemented the secure argument
+            if CURRENT_PYTHON_VERSION >= PYTHON_27:
+                args.append(secure)
+            else:
+                self.secure = secure
+
+        logging.handlers.SMTPHandler.__init__(self, *args)
+
+    def getSubject(self, record):
+        subject = logging.handlers.SMTPHandler.getSubject(self, record)
+        if record.levelno in self.LEVEL_SUBJECTS:
+            return subject + " " + self.LEVEL_SUBJECTS[record.levelno]
+        return subject
+
+    def emit(self, record):
+        """
+        Emit a record.
+
+        Format the record and send it to the specified addressees.
+        """
+
+        # Mostly copied from Python 2.7 implementation.
+        try:
+            import smtplib
+            from email.utils import formatdate
+
+            port = self.mailport
+            if not port:
+                port = smtplib.SMTP_PORT
+            smtp = smtplib.SMTP(self.mailhost, port)
+            msg = self.format(record)
+            msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
+                self.fromaddr,
+                ",".join(self.toaddrs),
+                self.getSubject(record),
+                formatdate(),
+                msg,
+            )
+            if self.username:
+                if self.secure is not None:
+                    smtp.ehlo()
+                    smtp.starttls(*self.secure)
+                    smtp.ehlo()
+                smtp.login(self.username, self.password)
+            smtp.sendmail(self.fromaddr, self.toaddrs, msg)
+            smtp.close()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
 
 
 class EventDaemonError(Exception):
